@@ -1,4 +1,4 @@
-# Hermes Web UI
+# Hermes Web UI Enhanced
 
 [Hermes Agent](https://hermes-agent.nousresearch.com/) is a sophisticated autonomous agent that lives on your server, accessed via a terminal or messaging apps, that remembers what it learns and gets more capable the longer it runs.
 
