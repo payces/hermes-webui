@@ -987,7 +987,7 @@ def _cancelled_turn_content(message: str = 'Task cancelled.', agent_name: str | 
     return result
 
 
-def _persist_cancelled_turn(session, *, message: str = 'Task cancelled.', tool_call_summary: str = '') -> None:
+def _persist_cancelled_turn(session, *, message: str = 'Task cancelled.') -> None:
     """Persist a user-cancelled terminal state without provider-error wording.
 
     cancel_stream() usually writes this marker first, but the streaming thread can
@@ -1003,7 +1003,7 @@ def _persist_cancelled_turn(session, *, message: str = 'Task cancelled.', tool_c
         agent_name = _preferred_agent_display_name_for_session(session)
         session.messages.append({
             'role': 'assistant',
-            'content': _cancelled_turn_content(message, agent_name, tool_call_summary),
+            'content': _cancelled_turn_content(message, agent_name),
             '_error': True,
             'provider_details': str(message or 'Task cancelled.').strip(),
             'provider_details_label': 'Cancellation details',
@@ -1024,12 +1024,12 @@ def _cleanup_ephemeral_cancelled_turn(session) -> None:
         logger.debug("Failed to clean up ephemeral cancelled session", exc_info=True)
 
 
-def _finalize_cancelled_turn(session, *, ephemeral: bool = False, message: str = 'Task cancelled.', tool_call_summary: str = '') -> None:
+def _finalize_cancelled_turn(session, *, ephemeral: bool = False, message: str = 'Task cancelled.') -> None:
     """Finalize a cancelled turn for persistent or ephemeral sessions."""
     if ephemeral:
         _cleanup_ephemeral_cancelled_turn(session)
         return
-    _persist_cancelled_turn(session, message=message, tool_call_summary=tool_call_summary)
+    _persist_cancelled_turn(session, message=message)
     try:
         session.save()
     except Exception:
@@ -7856,7 +7856,7 @@ def cancel_stream(stream_id: str) -> bool:
                 # history on the next turn (prevents model from seeing "Task cancelled."
                 # as a prior assistant reply).
                 if not _cancel_marker_exists:
-                    # Build tool call summary for cancelled turn
+                    # Build tool call summary as _partial message (visible to LLM)
                     _tc_lines = []
                     for _tc in (_cancel_tool_calls or []):
                         if not isinstance(_tc, dict): continue
@@ -7864,15 +7864,19 @@ def cancel_stream(stream_id: str) -> bool:
                         _tc_status = '[OK]' if _tc.get('done') else '[PENDING]'
                         _tc_args = str(_tc.get('args') or '')[:100]
                         _tc_lines.append(f'  - {_tc_status} {_tc_name}: {_tc_args}')
-                    _tc_summary = ''
                     if _tc_lines:
-                        _tc_summary = '[Interrupted - tool calls executed:]\n' + '\n'.join(_tc_lines)
+                        _tc_summary = '[Interrupted - tool calls executed before cancel:]\n' + '\n'.join(_tc_lines)
+                        _cs.messages.append({
+                            'role': 'assistant',
+                            'content': _tc_summary,
+                            '_partial': True,
+                            'timestamp': int(time.time()),
+                        })
                     _cs.messages.append({
                         'role': 'assistant',
                         'content': _cancelled_turn_content(
                             'Task cancelled.',
                             _preferred_agent_display_name_for_session(_cs),
-                            _tc_summary,
                         ),
                         '_error': True,
                         'provider_details': 'Task cancelled.',
