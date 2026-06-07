@@ -453,6 +453,7 @@ async function send(){
         queueSessionMessage(S.session.session_id,{text,files:[...S.pendingFiles],model:_modelState.model,model_provider:_modelState.model_provider,profile:S.activeProfile||'default'});
         updateQueueBadge(S.session.session_id);
         $('msg').value='';autoResize();
+        const _iSid=S && S.session && S.session.session_id;if(_iSid && typeof _clearComposerDraft==='function') _clearComposerDraft(_iSid);
         S.pendingFiles=[];renderTray();
         if(S.activeStreamId&&typeof cancelStream==='function'){
           showToast(t('busy_interrupt_confirm'),2000);
@@ -466,6 +467,7 @@ async function send(){
         const _modelState=_chatPayloadModelState();
         queueSessionMessage(S.session.session_id,{text,files:[...S.pendingFiles],model:_modelState.model,model_provider:_modelState.model_provider,profile:S.activeProfile||'default'});
         $('msg').value='';autoResize();
+        const _qSid=S && S.session && S.session.session_id;if(_qSid && typeof _clearComposerDraft==='function') _clearComposerDraft(_qSid);
         S.pendingFiles=[];renderTray();
         updateQueueBadge(S.session.session_id);
         showToast(`Queued: "${text.slice(0,40)}${text.length>40?'…':''}"`,2000);

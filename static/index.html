@@ -43,13 +43,32 @@
       return !/\/api\/(auth\/login|csp-report)$/.test(url.pathname);
     }catch(_){return false;}
   }
+  var _csrfRetryInProgress=false;
   window.fetch=function(input,init){
     if(sameOriginUnsafe(input,init)){
       var opts=init?Object.assign({},init):{};
       var headers=new Headers(opts.headers!==undefined?opts.headers:((input&&input.headers)||{}));
       if(!headers.has('X-Hermes-CSRF-Token'))headers.set('X-Hermes-CSRF-Token',token);
       opts.headers=headers;
-      return originalFetch(input,opts);
+      return originalFetch(input,opts).then(function(resp){
+        if(resp.status===403&&!_csrfRetryInProgress){
+          return resp.clone().json().catch(function(){return null}).then(function(body){
+            var msg=(body&&body.error)||'';
+            if(msg.indexOf('Session expired')===-1&&msg.indexOf('Cross-origin')===-1)return resp;
+            _csrfRetryInProgress=true;
+            return originalFetch('/api/auth/status',{credentials:'include'}).then(function(authResp){
+              return authResp.json().catch(function(){return null}).then(function(authBody){
+                if(authBody&&authBody.csrf_token){
+                  token=authBody.csrf_token;
+                  try{var h=new Headers(opts.headers!==undefined?opts.headers:((input&&input.headers)||{}));h.set('X-Hermes-CSRF-Token',token);opts.headers=h;}catch(_){}
+                }
+                return originalFetch(input,opts);
+              });
+            }).finally(function(){_csrfRetryInProgress=false;});
+          });
+        }
+        return resp;
+      });
     }
     return originalFetch(input,init);
   };

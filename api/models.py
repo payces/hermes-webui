@@ -2373,8 +2373,9 @@ def _hide_from_default_sidebar(session: dict, *, show_cron: bool = False) -> boo
     """Return True for internal/background sessions hidden from the default list."""
     sid = str(session.get('session_id') or '')
     source = session.get('source_tag') or session.get('source')
-    if not show_cron and (source == 'cron' or sid.startswith('cron_')):
-        return True
+    # cron sessions are now shown by default (treated as webui sessions)
+    if source == 'cron' or sid.startswith('cron_'):
+        return False
     if bool(session.get('pre_compression_snapshot')):
         return not bool(session.get('_show_pre_compression_snapshot'))
     return False
@@ -3606,7 +3607,7 @@ def _load_cli_sessions_uncached(hermes_home: Path, db_path: Path, _cli_profile) 
             '_lineage_root_id': row.get('_lineage_root_id'),
             '_lineage_tip_id': row.get('_lineage_tip_id'),
             '_compression_segment_count': row.get('_compression_segment_count'),
-            'is_cli_session': is_cli_session_row(row),
+            'is_cli_session': is_cli_session_row(row) if row.get('source') != 'cron' else False,
         })
 
     # --- Second pass: fetch cron sessions that may have been squeezed out
@@ -3690,7 +3691,7 @@ def _load_cli_sessions_uncached(hermes_home: Path, db_path: Path, _cli_profile) 
                 '_lineage_root_id': row.get('_lineage_root_id'),
                 '_lineage_tip_id': row.get('_lineage_tip_id'),
                 '_compression_segment_count': row.get('_compression_segment_count'),
-                'is_cli_session': is_cli_session_row(row),
+                'is_cli_session': False,
             })
             existing_sids.add(sid)
     except Exception:

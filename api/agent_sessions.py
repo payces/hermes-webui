@@ -154,6 +154,8 @@ def is_cli_session_row(row: dict) -> bool:
         return False
     if source == "messaging":
         return False
+    if source == "cron" or source_tag == "cron" or source_name == "cron":
+        return False
     if source == "cli":
         return True
     if source_tag == "cli" or raw_source == "cli" or source_name == "cli" or source_label == "cli":
